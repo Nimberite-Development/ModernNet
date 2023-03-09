@@ -1,4 +1,4 @@
-#! Copyright 2022 Yu-Vitaqua-fer-Chronos
+#! Copyright 2023 Yu-Vitaqua-fer-Chronos
 #!
 #! Licensed under the Apache License, Version 2.0 (the "License");
 #! you may not use this file except in compliance with the License.
@@ -29,20 +29,16 @@ proc writeNum*[R: SomeNumber | bool](s: Stream, value: R) =
   var val = value
   var data: R
 
-  if cpuEndian == littleEndian:
-    case R.sizeof
+  case R.sizeof
 
-    of 2:
-      swapEndian16(addr val, addr data)
+  of 2:
+    bigEndian16(addr data, addr val)
 
-    of 4:
-      swapEndian32(addr val, addr data)
+  of 4:
+    bigEndian32(addr data, addr val)
 
-    of 8:
-      swapEndian64(addr val, addr data)
-
-    else:
-      data = val
+  of 8:
+    bigEndian64(addr data, addr val)
 
   else:
     data = val

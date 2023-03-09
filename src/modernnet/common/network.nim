@@ -1,4 +1,4 @@
-#! Copyright 2022 Yu-Vitaqua-fer-Chronos
+#! Copyright 2023 Yu-Vitaqua-fer-Chronos
 #!
 #! Licensed under the Apache License, Version 2.0 (the "License");
 #! you may not use this file except in compliance with the License.
@@ -35,8 +35,9 @@ import "."/[
 #[ to be explicitly used ]#
 when defined(nbPlugin):
   type
-    SendBuffer* = proc(socket: AsyncSocket, buf: pointer, size: int, flags = {SafeDisconn}) {.async.}
-    SendString* = proc(socket: AsyncSocket, data: string, flags = {SafeDisconn}) {.async.}
+    SetSendProcs* = proc(sBf: SendBuffer, sSt: SendString) {.nimcall.}
+    SendBuffer* = proc(socket: AsyncSocket, buf: pointer, size: int, flags = {SafeDisconn}) {.nimcall, async.}
+    SendString* = proc(socket: AsyncSocket, data: string, flags = {SafeDisconn}) {.nimcall, async.}
 
   var
     sendBuf: SendBuffer
@@ -46,10 +47,10 @@ when defined(nbPlugin):
     sendBuf = sBf
     sendStr = sSt
 
-  template send*(socket: AsyncSocket, buf: pointer, size: int, flags = {SafeDisconn}): Future[void] =
+  template send(socket: AsyncSocket, buf: pointer, size: int, flags = {SafeDisconn}): Future[void] =
     socket.sendBuf(buf, size, flags)
 
-  template send*(socket: AsyncSocket, data: string, flags = {SafeDisconn}): Future[void] =
+  template send(socket: AsyncSocket, data: string, flags = {SafeDisconn}): Future[void] =
     socket.sendStr(data, flags)
 
 
@@ -60,20 +61,16 @@ proc writeNum*[R: SomeNumber | bool](s: AsyncSocket, value: R) {.async.} =
   var val = value
   var data: R
 
-  if cpuEndian == littleEndian:
-    case R.sizeof
+  case R.sizeof
 
-    of 2:
-      swapEndian16(addr val, addr data)
+  of 2:
+    bigEndian16(addr data, addr val)
 
-    of 4:
-      swapEndian32(addr val, addr data)
+  of 4:
+    bigEndian32(addr data, addr val)
 
-    of 8:
-      swapEndian64(addr val, addr data)
-
-    else:
-      data = val
+  of 8:
+    bigEndian64(addr data, addr val)
 
   else:
     data = val
@@ -115,23 +112,43 @@ proc write*(s: AsyncSocket, strm: Stream) {.async.} =
   await s.send(data)
 
 
-proc readVarNum*[R: int32 | int64](s: AsyncSocket): Future[R] {.async.} =
-  ## Reads a VarInt or a VarLong from the socket
+proc readVarInt*(s: AsyncSocket): Future[int32] {.async.} =
+  ## Reads a VarInt from the socket
   var
     position: int8 = 0
-    currentByte: uint8
+    currentByte: int8
 
   while true:
-    discard await s.recvInto(addr currentByte, 1)
+    discard s.recvInto(addr currentByte, 1).await
 
-    result = result or ((currentByte.R and SEGMENT_BITS) shl position)
+    result = result or ((currentByte.int32 and SEGMENT_BITS) shl position)
 
     if (currentByte and CONTINUE_BIT) == 0:
       break
 
     position += 7
 
-    if position >= (8 * R.sizeof):
+    if position >= 32:
+      raise newException(MnPacketParsingError, "VarNum is too big!")
+
+
+proc readVarLong*(s: AsyncSocket): Future[int64] {.async.} =
+  ## Reads a VarLong from the socket
+  var
+    position: int8 = 0
+    currentByte: int8
+
+  while true:
+    discard s.recvInto(addr currentByte, 1).await
+
+    result = result or ((currentByte.int64 and SEGMENT_BITS) shl position)
+
+    if (currentByte and CONTINUE_BIT) == 0:
+      break
+
+    position += 7
+
+    if position >= 64:
       raise newException(MnPacketParsingError, "VarNum is too big!")
 
 
@@ -147,6 +164,8 @@ proc read*(s: AsyncSocket, buf: Stream, size: int) {.async.} =
 
 proc read*(s: AsyncSocket, size: int): Future[Stream] {.async.} =
   ## Reads data from a stream and returns a stream
+  result = newStringStream()
+
   var data = await s.recv(size)
 
   if data == "":

@@ -1,4 +1,4 @@
-#! Copyright 2022 Yu-Vitaqua-fer-Chronos
+#! Copyright 2023 Yu-Vitaqua-fer-Chronos
 #!
 #! Licensed under the Apache License, Version 2.0 (the "License");
 #! you may not use this file except in compliance with the License.
@@ -27,23 +27,21 @@ proc readNum*[R: SomeNumber | bool](s: Stream): R =
   ## Reads a boolean or any numeric primitive type from a stream
   var data: R
 
-  discard s.readData(addr data, sizeof R)
+  s.read(data)
 
-  # Read the bytes and take into account the format the bytes are transmitted in
-  if cpuEndian == littleEndian:
-    case R.sizeof
+  case R.sizeof
 
-    of 2:
-      swapEndian16(addr data, addr result)
+  of 2:
+    bigEndian16(addr result, addr data)
 
-    of 4:
-      swapEndian32(addr data, addr result)
+  of 4:
+    bigEndian32(addr result, addr data)
 
-    of 8:
-      swapEndian64(addr data, addr result)
+  of 8:
+    bigEndian64(addr result, addr data)
 
-    else:
-      return data
+  else:
+    return data
 
 
 proc readVarNum*[R: int32 | int64](s: Stream): R =

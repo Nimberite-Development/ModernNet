@@ -1,4 +1,4 @@
-#! Copyright 2022 Yu-Vitaqua-fer-Chronos
+#! Copyright 2023 Yu-Vitaqua-fer-Chronos
 #!
 #! Licensed under the Apache License, Version 2.0 (the "License");
 #! you may not use this file except in compliance with the License.
@@ -21,7 +21,10 @@ import std/[
 ]
 
 # Since this is a plugin for Nimberite, we need to actually depend on Nimberite
-import nimberite/api/interfaces
+import nimberite/api/[
+  pluginmanager, # Used for managing plugins
+  interfaces     # Used for the NbPlugin
+]
 
 # Import the common modules used for parsing and handling packets
 import ../modernnet
@@ -40,6 +43,13 @@ type
   HandshakeProc = proc(srv: NbPlugin, s: AsyncSocket, servAddr: string, port: uint16,
     nextState: int32) {.nimcall, async.}
 
+
+proc sendBuf(socket: AsyncSocket, buf: pointer, size: int, flags = {SafeDisconn}) {.async, exportc, dynlib.} =
+  await socket.send(buf, size, flags)
+
+proc sendStr(socket: AsyncSocket, data: string, flags = {SafeDisconn}) {.async, exportc, dynlib.} =
+  await socket.send(data, flags)
+
 # Used to keep track of supported protocol versions
 var protocolPluginTable: TableRef[int32, NbPlugin]
 
@@ -56,7 +66,7 @@ var tcpServer: AsyncSocket
 proc initiateHandshake(srv: NbServer, s: AsyncSocket) {.async.} =
   ## Initiates the handshake for modern clients, needs to be rewritten
   var
-    pSize: int = await s.readVarNum[:int32]()
+    pSize: int = await s.readVarInt()
     packet = await s.read(pSize)
 
     packetId = packet.readVarNum[:int32]()
@@ -80,22 +90,33 @@ proc initiateHandshake(srv: NbServer, s: AsyncSocket) {.async.} =
     s.close()
 
 
-proc startServer(srv: NbServer) {.async.} =
+proc startServer(plugin: NbPlugin) {.async.} =
   tcpServer.bindAddr(25565.Port, "0.0.0.0")
   tcpServer.listen()
 
-  while true:
+  while plugin.isEnabled:
     var connection = await tcpServer.accept()
 
-    asyncCheck srv.initiateHandshake(connection)
+    asyncCheck plugin.server.initiateHandshake(connection)
 
-proc setup*(plugin: NbPlugin) {.dynlib, exportc, async.} = discard
 
-proc teardown*(plugin: NbPlugin) {.dynlib, exportc, async.} = discard
-
-proc enable*(plugin: NbPlugin) {.dynlib, exportc, async.} =
+proc setup*(plugin: NbPlugin) {.dynlib, exportc, async.} =
   tcpServer = newAsyncSocket(inheritable = true)
 
-  asyncCheck plugin.server.startServer()
 
-proc disable*(plugin: NbPlugin) {.dynlib, exportc, async.} = discard
+proc teardown*(plugin: NbPlugin) {.dynlib, exportc, async.} =
+  for protocolVer in protocolPluginTable.keys:
+    await requestTeardown(protocolPluginTable[protocolVer])
+
+  tcpServer.close()
+
+
+proc enable*(plugin: NbPlugin) {.dynlib, exportc, async.} =
+  asyncCheck plugin.startServer()
+
+
+proc disable*(plugin: NbPlugin) {.dynlib, exportc, async.} =
+  for protocolVer in protocolPluginTable.keys:
+    await requestDisable(protocolPluginTable[protocolVer])
+
+  tcpServer.close()

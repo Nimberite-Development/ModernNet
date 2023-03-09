@@ -1,4 +1,4 @@
-#! Copyright 2022 Yu-Vitaqua-fer-Chronos
+#! Copyright 2023 Yu-Vitaqua-fer-Chronos
 #!
 #! Licensed under the Apache License, Version 2.0 (the "License");
 #! you may not use this file except in compliance with the License.
