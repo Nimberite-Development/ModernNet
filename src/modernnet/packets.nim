@@ -12,6 +12,6 @@
 #! See the License for the specific language governing permissions and
 #! limitations under the License.
 
-import "."/[
+import "."/packets/[
   common # Packets shared between all the modern versions, such as the handshake packet
 ]

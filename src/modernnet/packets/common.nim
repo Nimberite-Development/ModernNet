@@ -12,8 +12,17 @@
 #! See the License for the specific language governing permissions and
 #! limitations under the License.
 
-type Packet* = object of RootObj
-  id: uint8
-  data: cstring
+import std/[
+  streams
+]
 
-proc new*(_: typedesc[Packet], id: uint8, data: cstring): Packet = Packet(id: id, data: data)
+import ".."/serialisation
+
+type Packet* = ref object of RootObj
+  ## Base packet type that's inherited from
+  id: int32
+  data: seq[byte]
+
+proc new*(_: typedesc[Packet], id: int32, data: seq[byte]): Packet = Packet(id: id, data: data)
+proc new*(_: typedesc[Packet], strm: Stream): Packet = Packet(id: strm.readVarNum[:int32](),
+  data: cast[seq[byte]](strm.readAll()))

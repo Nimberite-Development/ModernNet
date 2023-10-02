@@ -26,18 +26,23 @@ import "."/[
 
 const
   IDENTIFIER_NAMESPACE_REGEX = re"[a-z0-9.-_]"
-  IDENTIFIER_VALUE_REGEX = "[a-z0-9.-_/]"
+  IDENTIFIER_VALUE_REGEX = re"[a-z0-9.-_/]"
 
 type
+  UUID* = distinct string ## A distinct string for UUIDs.
+
   Identifier* = object
+    ## A simple MC identifier.
     namespace*, value*: string
 
   Position* = object ## Stores a position to anything in a world, 
     x*, z*: int32
     y*: int16
 
+func `$`*(uuid: UUID): string = uuid.string
+
 proc `$`*(i: Identifier): string =
-  ## A simple proc to get the serialised identifier as a string
+  ## Get an identifier as a string.
   return i.namespace & ":" & i.value
 
 proc new*(_: typedesc[Identifier], identStr: string): Identifier =
@@ -67,7 +72,8 @@ proc new*(_: typedesc[Identifier], identStr: string): Identifier =
 
 
 proc toPos*(val: int64): Position =
-  ## Parses an int64 value to get the position
+  ## Parses an int64 value to get the position, for MC 1.14+ specifically,
+  ## the format for positions was different for earlier versions.
   result.x = (val shr 38).int32
   result.y = (val shl 52 shr 52).int16
   result.z = (val shl 26 shr 38).int32
@@ -77,7 +83,7 @@ proc toPos*(val: int64): Position =
       fmt"`{result}` is too big to be used as a valid position!")
 
 proc fromPos*(pos: Position): int64 =
-  ## Returns a serialised position object
+  ## Returns a serialised position object for MC 1.14+ specifically.
   if (pos.x > 67108863) or (pos.z > 67108863) or (pos.y > 4095):
     raise newException(MnInvalidOutgoingPositionError,
       fmt"`{result}` is too large to be constructed!")

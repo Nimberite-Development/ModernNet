@@ -28,14 +28,14 @@ import "."/[
 #[ Networking specific procs for serialising and deserialising, not all are implemented here as ]#
 #[ the stream-oriented API is preferred ]#
 proc writeNum*[R: SomeNumber | bool](s: AsyncSocket, value: R) {.async.} =
-  ## Sends a boolean or any numeric primitive type to a socket
+  ## Sends a boolean or any numeric primitive type to a socket.
   let val = value.toBigEndian
 
   await s.send(unsafeAddr val, val.sizeof)
 
 
 proc writeVarNum*[R: int32 | int64](s: AsyncSocket, num: R) {.async.} =
-  ## Writes a VarInt or a VarLong to a stream
+  ## Writes a VarInt or a VarLong to a socket.
   when R is int32:
     var val: int32 = num
 
@@ -60,7 +60,7 @@ proc writeVarNum*[R: int32 | int64](s: AsyncSocket, num: R) {.async.} =
 
 
 proc write*(s: AsyncSocket, strm: Stream) {.async.} =
-  ## Writes all data from a stream to a socket
+  ## Writes all data from a stream to a socket.
   strm.setPosition(0)
   let data = strm.readAll()
 
@@ -69,7 +69,7 @@ proc write*(s: AsyncSocket, strm: Stream) {.async.} =
 
 
 proc readVarInt*(s: AsyncSocket): Future[int32] {.async.} =
-  ## Reads a VarInt from the socket
+  ## Reads a VarInt from a socket.
   var
     position: int8 = 0
     currentByte: int8
@@ -89,7 +89,7 @@ proc readVarInt*(s: AsyncSocket): Future[int32] {.async.} =
 
 
 proc readVarLong*(s: AsyncSocket): Future[int64] {.async.} =
-  ## Reads a VarLong from the socket
+  ## Reads a VarLong from a socket.
   var
     position: int8 = 0
     currentByte: int8
@@ -109,7 +109,7 @@ proc readVarLong*(s: AsyncSocket): Future[int64] {.async.} =
 
 
 proc read*(s: AsyncSocket, size: int): Future[Stream] {.async.} =
-  ## Reads data from a stream and returns a stream
+  ## Reads data from a socket and returns a stream.
   result = newStringStream()
 
   var data = await s.recv(size)
@@ -120,8 +120,8 @@ proc read*(s: AsyncSocket, size: int): Future[Stream] {.async.} =
   result = newStringStream(data)
 
 
-proc read*(s: AsyncSocket, buf: Stream, size: int) {.async.} =
-  ## Reads data from a stream using an existing stream
+proc read*(s: AsyncSocket, buf: var Stream, size: int) {.async.} =
+  ## Reads data from a socket using an existing stream.
   var data = await s.recv(size)
 
   if data == "":

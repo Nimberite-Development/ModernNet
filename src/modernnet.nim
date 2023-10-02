@@ -12,15 +12,21 @@
 #! See the License for the specific language governing permissions and
 #! limitations under the License.
 
-import "."/[
-  serialisation/serialisation,
+import std/streams
+
+import "."/modernnet/[
+  serialisation,
   exceptions,
+  helpers,
   network,
   types
 ]
 
+export streams
+
 export
   serialisation,
   exceptions,
+  helpers,
   network,
   types

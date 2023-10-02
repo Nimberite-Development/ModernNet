@@ -13,12 +13,16 @@
 #! limitations under the License.
 
 type
-  MnInvalidIdentifierError* = object of CatchableError
+  MnError* = object of CatchableError
 
-  MnInvalidIncomingPositionError* = object of CatchableError
-  MnInvalidOutgoingPositionError* = object of CatchableError
+  MnInvalidJsonError* = object of MnError
 
-  MnPacketConstructionError* = object of CatchableError
-  MnPacketParsingError* = object of CatchableError
+  MnInvalidIdentifierError* = object of MnError
 
-  MnConnectionClosedError* = object of CatchableError
+  MnInvalidIncomingPositionError* = object of MnError
+  MnInvalidOutgoingPositionError* = object of MnError
+
+  MnPacketConstructionError* = object of MnError
+  MnPacketParsingError* = object of MnError
+
+  MnConnectionClosedError* = object of MnError
