@@ -7,7 +7,7 @@ on:
 env:
   nim-version: 'stable'
   package-name: modernnet
-  nim-src: src/${{ env.package-name }}.nim
+  nim-src: src/modernnet.nim
   deploy-dir: .gh-pages
 
 jobs:
