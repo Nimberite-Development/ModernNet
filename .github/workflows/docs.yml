@@ -6,9 +6,9 @@ on:
 
 env:
   nim-version: 'stable'
-  nim-src: src/${{ github.event.repository.name }}.nim
-  deploy-dir: .gh-pages
   package-name: modernnet
+  nim-src: src/${{ env.package-name }}.nim
+  deploy-dir: .gh-pages
 
 jobs:
   docs:
