@@ -19,10 +19,10 @@ type
 
   MnInvalidIdentifierError* = object of MnError
 
-  MnInvalidIncomingPositionError* = object of MnError
-  MnInvalidOutgoingPositionError* = object of MnError
-
   MnPacketConstructionError* = object of MnError
   MnPacketParsingError* = object of MnError
+
+  MnInvalidPositionConstructionError* = object of MnPacketConstructionError
+  #MnInvalidPositionParsingError* = object of MnPacketParsingError
 
   MnConnectionClosedError* = object of MnError

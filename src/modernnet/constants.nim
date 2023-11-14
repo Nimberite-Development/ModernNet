@@ -13,5 +13,8 @@
 #! limitations under the License.
 
 const
-  SEGMENT_BITS* = 0x7F
-  CONTINUE_BIT* = 0x80
+  Segment_Bits* = 0x7F
+  ContinueBit* = 0x80
+
+  VarIntBits* = 32
+  VarLongBits* = 64

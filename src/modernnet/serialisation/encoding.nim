@@ -28,7 +28,7 @@ import "."/[
 
 proc writeNum*[R: SomeNumber | bool](s: Stream, value: R) =
   ## Sends a boolean or any numeric primitive type to a stream
-  s.write(value.toBigEndian)
+  s.write(value.toBytesBE)
 
 
 proc writeVarNum*[R: int32 | int64](s: Stream, num: R) =
@@ -41,7 +41,7 @@ proc writeVarNum*[R: int32 | int64](s: Stream, num: R) =
         s.writeNum(val.uint8)
         break
 
-      s.write(cast[int8]((val and SEGMENT_BITS) or CONTINUE_BIT)) # TODO: Use bitslices instead
+      s.write(cast[int8]((val and SEGMENT_BITS) or CONTINUE_BIT))
       val = val shr 7
 
   when R is int64:
@@ -72,6 +72,6 @@ template writeIdentifier*(s: Stream, i: Identifier) =
   s.write($i)
 
 
-template writePosition*[T: Position](s: Stream, p: Position) =
+template writePosition*[T: Position](s: Stream, p: Position, format = XZY) =
   ## Writes a Position to a stream
-  s.writeNum[:int64](toPos(p))
+  s.writeNum[:int64](toPos(p, format))

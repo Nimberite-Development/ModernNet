@@ -14,8 +14,9 @@
 
 import std/[
   asyncdispatch, # Used for our asynchronous programming
-  asyncnet, # Used for the networking
+  asyncnet,      # Used for the networking
   streams,       # Use this to decode and encode data for encoding and decoding packets
+  net
 ]
 
 import ./serialisation/common
@@ -27,14 +28,16 @@ import "."/[
 
 #[ Networking specific procs for serialising and deserialising, not all are implemented here as ]#
 #[ the stream-oriented API is preferred ]#
-proc writeNum*[R: SomeNumber | bool](s: AsyncSocket, value: R) {.async.} =
+proc writeNum*[R: SomeNumber | bool](s: AsyncSocket | Socket, value: R) {.multisync.} =
   ## Sends a boolean or any numeric primitive type to a socket.
-  let val = value.toBigEndian
+  let val = cast[string](value.toBytesBE())
+  when s is AsyncSocket:
+    await s.send(val)
+  else:
+    s.send(val)
 
-  await s.send(unsafeAddr val, val.sizeof)
 
-
-proc writeVarNum*[R: int32 | int64](s: AsyncSocket, num: R) {.async.} =
+proc writeVarNum*[R: int32 | int64](s: AsyncSocket | Socket, num: R) {.multisync.} =
   ## Writes a VarInt or a VarLong to a socket.
   when R is int32:
     var val: int32 = num
@@ -59,7 +62,7 @@ proc writeVarNum*[R: int32 | int64](s: AsyncSocket, num: R) {.async.} =
       val = val shr 7
 
 
-proc write*(s: AsyncSocket, strm: Stream) {.async.} =
+proc write*(s: AsyncSocket | Socket, strm: Stream) {.multisync.} =
   ## Writes all data from a stream to a socket.
   strm.setPosition(0)
   let data = strm.readAll()
@@ -67,60 +70,48 @@ proc write*(s: AsyncSocket, strm: Stream) {.async.} =
   await s.writeVarNum[:int32](data.len.int32)
   await s.send(data)
 
+proc readVarNum*[R: int32 | int64](s: AsyncSocket | Socket): Future[R] {.multisync.} =
+  ## Reads a VarInt or VarLong from a socket.
+  var
+    position: int8 = 0
+    currentByte: int8
 
-proc readVarInt*(s: AsyncSocket): Future[int32] {.async.} =
+  while true:
+    when s is AsyncSocket:
+      discard await s.recvInto(addr currentByte, 1)
+    else:
+      discard s.recv(addr currentByte, 1)
+
+    result = result or ((currentByte.R and SEGMENT_BITS) shl position)
+
+    if (currentByte and CONTINUE_BIT) == 0:
+      break
+
+    position += 7
+
+    when R is int32:
+      if position >= VarIntBits:
+        raise newException(MnPacketParsingError, "VarInt is too big!")
+
+    elif R is int64:
+      if position >= VarIntBits:
+        raise newException(MnPacketParsingError, "VarLong is too big!")
+
+    else:
+      {.error: "Achievement Made: How did we get here?".}
+
+
+proc readVarInt*(s: AsyncSocket | Socket): Future[int32] {.multisync, deprecated: "Use `readVarNum` instead".} =
   ## Reads a VarInt from a socket.
-  var
-    position: int8 = 0
-    currentByte: int8
-
-  while true:
-    discard s.recvInto(addr currentByte, 1).await
-
-    result = result or ((currentByte.int32 and SEGMENT_BITS) shl position)
-
-    if (currentByte and CONTINUE_BIT) == 0:
-      break
-
-    position += 7
-
-    if position >= 32:
-      raise newException(MnPacketParsingError, "VarNum is too big!")
+  await s.readVarNum[:int32]()
 
 
-proc readVarLong*(s: AsyncSocket): Future[int64] {.async.} =
+proc readVarLong*(s: AsyncSocket | Socket): Future[int64] {.multisync, deprecated: "Use `readVarNum` instead".} =
   ## Reads a VarLong from a socket.
-  var
-    position: int8 = 0
-    currentByte: int8
-
-  while true:
-    discard s.recvInto(addr currentByte, 1).await
-
-    result = result or ((currentByte.int64 and SEGMENT_BITS) shl position)
-
-    if (currentByte and CONTINUE_BIT) == 0:
-      break
-
-    position += 7
-
-    if position >= 64:
-      raise newException(MnPacketParsingError, "VarNum is too big!")
+  await s.readVarNum[:int64]()
 
 
-proc read*(s: AsyncSocket, size: int): Future[Stream] {.async.} =
-  ## Reads data from a socket and returns a stream.
-  result = newStringStream()
-
-  var data = await s.recv(size)
-
-  if data == "":
-    raise newException(MnConnectionClosedError, "Connection closed!")
-
-  result = newStringStream(data)
-
-
-proc read*(s: AsyncSocket, buf: var Stream, size: int) {.async.} =
+proc read*(s: AsyncSocket | Socket, buf: var Stream, size: int) {.multisync.} =
   ## Reads data from a socket using an existing stream.
   var data = await s.recv(size)
 
@@ -128,3 +119,9 @@ proc read*(s: AsyncSocket, buf: var Stream, size: int) {.async.} =
     raise newException(MnConnectionClosedError, "Connection closed!")
 
   buf.write(data)
+
+
+proc read*(s: AsyncSocket | Socket, size: int): Future[Stream] {.multisync.} =
+  ## Reads data from a socket and returns a stream.
+  result = newStringStream()
+  await s.read(result, size)

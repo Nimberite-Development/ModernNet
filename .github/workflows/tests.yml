@@ -1,0 +1,25 @@
+name: Run Tests
+
+on:
+  [push, pull_request]
+
+env:
+  nim-version: 'stable'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: jiro4989/setup-nim-action@v1
+        with:
+          nim-version: ${{ env.nim-version }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Dependencies
+        run: nimble install -Y
+
+      - name: Run Tests
+        run: nimble test

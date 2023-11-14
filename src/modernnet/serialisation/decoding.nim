@@ -26,12 +26,12 @@ import "."/[
   common # Used for any common code between the modules
 ]
 
-proc readNum*[R: SomeNumber | bool](s: Stream): R =
-  ## Reads a boolean or any numeric primitive type from a stream
-  s.read(result)
+proc readNum*[R: UnsignedInts | SignedInts | SingleByte](s: Stream): R =
+  ## Reads any number from a stream
+  var byts: array[sizeof(R), byte]
+  s.read(byts)
 
-  return result.fromBigEndian
-
+  return fromBytesBE[R](byts)
 
 proc readVarNum*[R: int32 | int64](s: Stream): R =
   ## Reads a VarInt or a VarLong from a stream
@@ -51,8 +51,13 @@ proc readVarNum*[R: int32 | int64](s: Stream): R =
 
     position += 7
 
-    if position >= (8 * R.sizeof):
-      raise newException(MnPacketParsingError, "VarNum is too big!")
+    when R is int32:
+      if position >= VarIntBits:
+        raise newException(MnPacketParsingError, "VarInt is too big!")
+
+    elif R is int64:
+      if position >= VarLongBits:
+        raise newException(MnPacketParsingError, "VarLong is too big!")
 
 
 proc readString*(s: Stream): string =
@@ -68,6 +73,6 @@ template readIdentifier*(s: Stream): Identifier =
   identifier(s.decodeString())
 
 
-template readPosition*[T: Position](s: Stream): Position =
+template readPosition*[T: Position](s: Stream, format = XZY): Position =
   ## Reads a Position from a stream
-  return fromPos(s.readNum[:int64]())
+  return fromPos(s.readNum[:int64](), format)

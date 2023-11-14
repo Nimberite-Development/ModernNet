@@ -25,17 +25,21 @@ import "."/[
 ]
 
 const
-  IDENTIFIER_NAMESPACE_REGEX = re"[a-z0-9.-_]"
-  IDENTIFIER_VALUE_REGEX = re"[a-z0-9.-_/]"
+  IdentifierNamespaceRegex = re2"[a-z0-9.-_]"
+  IdentifierValueRegex = re2"[a-z0-9.-_/]"
 
 type
   UUID* = distinct string ## A distinct string for UUIDs.
 
   Identifier* = object
-    ## A simple MC identifier.
+    ## An MC identifier.
     namespace*, value*: string
 
-  Position* = object ## Stores a position to anything in a world, 
+  PositionFormat* = enum
+    ## An enum that allows for users to choose how a Position is encoded/decoded.
+    XYZ, XZY
+
+  Position* = object ## Stores a position to an entity within a world.
     x*, z*: int32
     y*: int16
 
@@ -58,7 +62,7 @@ proc new*(_: typedesc[Identifier], identStr: string): Identifier =
     result.namespace = ident[0]
     result.value = ident[1]
 
-    if not match(result.namespace, IDENTIFIER_NAMESPACE_REGEX):
+    if not match(result.namespace, IdentifierNamespaceRegex):
       raise newException(MnInvalidIdentifierError,
         fmt"`{identStr}` is not a valid identifier and contains an invalid character in the namespace!")
 
@@ -66,26 +70,35 @@ proc new*(_: typedesc[Identifier], identStr: string): Identifier =
     raise newException(MnInvalidIdentifierError,
       fmt"`{identStr}` has too many colons, making it an invalid identifier!")
 
-  if not match(result.value, IDENTIFIER_VALUE_REGEX):
+  if not match(result.value, IdentifierValueRegex):
     raise newException(MnInvalidIdentifierError,
       fmt"`{identStr}` is not a valid identifier and contains an invalid character in the value/key!")
 
 
-proc toPos*(val: int64): Position =
-  ## Parses an int64 value to get the position, for MC 1.14+ specifically,
-  ## the format for positions was different for earlier versions.
+proc toPos*(val: int64, format = XZY): Position =
+  ## Parses an int64 value to get the position, by default uses XZY,
+  ## as that is what is used for modern MC versions (1.14+).
   result.x = (val shr 38).int32
-  result.y = (val shl 52 shr 52).int16
-  result.z = (val shl 26 shr 38).int32
 
-  if (result.x > 67108863) or (result.z > 67108863) or (result.y > 4095):
-    raise newException(MnInvalidIncomingPositionError,
-      fmt"`{result}` is too big to be used as a valid position!")
+  case format
+  of XZY:
+    result.y = (val shl 52 shr 52).int16
+    result.z = (val shl 26 shr 38).int32
 
-proc fromPos*(pos: Position): int64 =
-  ## Returns a serialised position object for MC 1.14+ specifically.
+  of XYZ:
+    result.y = ((val shr 26) and 0xFFF).int16
+    result.z = ((val shl 38) shr 38).int32
+
+proc fromPos*(pos: Position, format = XZY): int64 =
+  ## Returns an int64 from a `Position`, by default uses XZY,
+  ## as that is what is used for modern MC versions (1.14+).
   if (pos.x > 67108863) or (pos.z > 67108863) or (pos.y > 4095):
-    raise newException(MnInvalidOutgoingPositionError,
+    raise newException(MnInvalidPositionConstructionError,
       fmt"`{result}` is too large to be constructed!")
 
-  return ((pos.x and 0x3FFFFFF) shl 38) or ((pos.z and 0x3FFFFFF) shl 12) or (pos.y and 0xFFF)
+  case format
+  of XZY:
+    return ((pos.x and 0x3FFFFFF) shl 38) or ((pos.z and 0x3FFFFFF) shl 12) or (pos.y and 0xFFF).int64
+
+  of XYZ:
+    return ((pos.x and 0x3FFFFFF) shl 38) or ((pos.y and 0xFFF) shl 26) or (pos.z and 0x3FFFFFF).int64
