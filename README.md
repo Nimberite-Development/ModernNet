@@ -67,11 +67,16 @@ this to not have an effect.
 - [ ] Implement MC auth for the library.
   - This isn't a *must*, *but* it would improve the QoL of developers who use this library.
 
-- [ ] Allow for `Socket` *or* `AsyncSocket` to be used in `network.nim`.
-  - Again, not a requirement but would be smart.
-
 - [ ] Wrap all packets and relating data for each MC version (and sharing the types/code when possible).
   - Not a requirement but would be nice: Create an API to parse a packet from a socket/stream
     without any other manual code.
 
 - [ ] Add more tests for verifying everything is working correctly.
+
+- [ ] Allow for the full API of encoding and decoding to be used even
+  on sockets.
+  - Not necessary but may be liked by some?
+
+## Completed Goals
+- [x] Allow for `Socket` *or* `AsyncSocket` to be used in `network.nim`.
+
