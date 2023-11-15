@@ -29,7 +29,7 @@ import "."/[
 proc readNum*[R: UnsignedInts | SignedInts | SingleByte](s: Stream): R =
   ## Reads any number from a stream
   var byts: array[sizeof(R), byte]
-  s.read(byts)
+  discard s.readData(unsafeAddr byts, sizeof(R))
 
   return fromBytesBE[R](byts)
 
