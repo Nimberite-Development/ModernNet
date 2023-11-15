@@ -111,7 +111,7 @@ proc readVarLong*(s: AsyncSocket | Socket): Future[int64] {.multisync, deprecate
   await s.readVarNum[:int64]()
 
 
-proc read*(s: AsyncSocket | Socket, buf: var Stream, size: int) {.multisync.} =
+proc read*(s: AsyncSocket | Socket, buf: Stream, size: int) {.multisync.} =
   ## Reads data from a socket using an existing stream.
   var data = await s.recv(size)
 
