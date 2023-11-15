@@ -115,9 +115,6 @@ proc read*(s: AsyncSocket | Socket, buf: Stream, size: int) {.multisync.} =
   ## Reads data from a socket using an existing stream.
   var data = await s.recv(size)
 
-  if data == "":
-    raise newException(MnConnectionClosedError, "Connection closed!")
-
   buf.write(data)
 
 
