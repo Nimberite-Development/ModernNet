@@ -19,56 +19,20 @@ import std/[
   net
 ]
 
-import ./serialisation/common
-
 import "."/[
   exceptions, # Used for raising errors
-  constants   # Used for unchanging values
+  constants,  # Used for unchanging values
+  buffer      # Used for encoding and decoding
 ]
 
 #[ Networking specific procs for serialising and deserialising, not all are implemented here as ]#
 #[ the stream-oriented API is preferred ]#
-proc writeNum*[R: SomeNumber | bool](s: AsyncSocket | Socket, value: R) {.multisync.} =
-  ## Sends a boolean or any numeric primitive type to a socket.
-  let val = cast[string](value.toBytesBE())
-  when s is AsyncSocket:
-    await s.send(val)
-  else:
-    s.send(val)
+proc write*(s: AsyncSocket | Socket, b: Buffer) {.multisync.} =
+  ## Writes all data from a buffer to a socket.
+  var buf = newBuffer()
+  buf.writeVarNum[:int32](b.buf.len.int32)
+  await s.send(cast[string](buf.buf & b.buf))
 
-
-proc writeVarNum*[R: int32 | int64](s: AsyncSocket | Socket, num: R) {.multisync.} =
-  ## Writes a VarInt or a VarLong to a socket.
-  when R is int32:
-    var val: int32 = num
-
-    while true:
-      if (val and (not SEGMENT_BITS)) == 0:
-        await s.writeNum(val.uint8)
-        break
-
-      await s.writeNum(cast[int8]((val and SEGMENT_BITS) or CONTINUE_BIT))
-      val = val shr 7
-
-  when R is int64:
-    var val: int64 = num
-
-    while true:
-      if (val and (not SEGMENT_BITS)) == 0:
-        await s.writeNum(val.uint8)
-        break
-
-      await s.writeNum(cast[int8]((val and SEGMENT_BITS) or CONTINUE_BIT))
-      val = val shr 7
-
-
-proc write*(s: AsyncSocket | Socket, strm: Stream) {.multisync.} =
-  ## Writes all data from a stream to a socket.
-  strm.setPosition(0)
-  let data = strm.readAll()
-
-  await s.writeVarNum[:int32](data.len.int32)
-  await s.send(data)
 
 proc readVarNum*[R: int32 | int64](s: AsyncSocket | Socket): Future[R] {.multisync.} =
   ## Reads a VarInt or VarLong from a socket.
@@ -111,14 +75,6 @@ proc readVarLong*(s: AsyncSocket | Socket): Future[int64] {.multisync, deprecate
   await s.readVarNum[:int64]()
 
 
-proc read*(s: AsyncSocket | Socket, buf: Stream, size: int) {.multisync.} =
-  ## Reads data from a socket using an existing stream.
-  var data = await s.recv(size)
-
-  buf.write(data)
-
-
-proc read*(s: AsyncSocket | Socket, size: int): Future[Stream] {.multisync.} =
+proc read*(s: AsyncSocket | Socket, size: int): Future[Buffer] {.multisync.} =
   ## Reads data from a socket and returns a stream.
-  result = newStringStream()
-  await s.read(result, size)
+  newBuffer(cast[seq[byte]](await s.recv(size)))

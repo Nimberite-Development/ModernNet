@@ -4,36 +4,58 @@ ModernNet is a barebones library to interact with the Minecraft Java Edition pro
 A very basic skeleton of a server is written here, however it does not handle logging into the server at all.
 
 ```nim
-import std/[asyncdispatch, asyncnet, streams]
+import std/[asyncdispatch, asyncnet, strutils]
 
 import modernnet
 
 proc processClient(client: AsyncSocket) {.async.} =
+  var state = 0
+
   while not client.isClosed():
     let
-      packetLength = await client.readVarInt()
+      packetLength = await client.readVarNum[:int32]()
       packet = await client.read(packetLength)
       packetId = packet.readVarNum[:int32]()
-    
-    if packetLength <= 0: return
+
+    echo "Packet ID: " & $packetId
 
     if packetId == 0x00:
-      var response = newStringStream()
+      if state == 0:
+        let
+          version = packet.readVarNum[:int32]()
+          address = packet.readString()
+          port = packet.readNum[:uint16]
 
-      response.writeVarNum[:int32](0x00)
-      response.writeString $buildServerListJson("1.7.10", 5, 0, 0)
+        state = packet.readVarNum[:int32]()
+        continue
 
-      await client.write(response)
+      elif state == 1:
+        var response = newBuffer()
+        response.writeVarNum(0x00)
+        response.writeString($buildServerListJson("1.7.10", 5, 10, 0))
 
-    if packetId == 0x01:
-        let payload = packet.readNum[:int64]()
+        await client.write(response)
+        continue
 
-        var pingRes = newStringStream()
-        pingRes.writeVarNum[:int32](0x01)
-        pingRes.writeNum[:int64](payload)
+      else:
+        echo "Unimplemented state: " & $state
+        continue
 
-        await client.write(pingRes)
-        client.close()
+    elif packetId == 0x01:
+      let payload = packet.readNum[:int64]()
+
+      var b = newBuffer()
+      b.writeNum(payload)
+
+      await client.write(b)
+
+      client.close()
+
+      continue
+
+    else:
+      echo "Unimplemented packet: " & $packetId
+      continue
 
 
 proc serve() {.async.} =
@@ -44,10 +66,10 @@ proc serve() {.async.} =
   
   while true:
     let client = await server.accept()
-    
     asyncCheck processClient(client)
 
 asyncCheck serve()
+echo "Started server"
 runForever()
 ```
 
@@ -57,26 +79,27 @@ in the example code, `if packetLength <= 0: return` is enough for
 this to not have an effect.
 
 ## To-Dos
-- [ ] Rewrite code to avoid streams (unnecessary overhead)
-
-- [ ] Wrap packets for MC various MC versions
-  - 1.7.10 upwards may be a good start
-
 - [ ] Work on better documentation, with more examples.
 
 - [ ] Implement MC auth for the library.
   - This isn't a *must*, *but* it would improve the QoL of developers who use this library.
 
 - [ ] Wrap all packets and relating data for each MC version (and sharing the types/code when possible).
-  - Not a requirement but would be nice: Create an API to parse a packet from a socket/stream
+  - Not a requirement but would be nice: Create an API to parse a packet from a socket/buffer
     without any other manual code.
+  - https://github.com/PrismarineJS/minecraft-data would likely be a very good starting point for
+    automating generation of the packet wrappers.
 
 - [ ] Add more tests for verifying everything is working correctly.
-
-- [ ] Allow for the full API of encoding and decoding to be used even
-  on sockets.
-  - Not necessary but may be liked by some?
+  - A W.I.P server is being made with this library so that more tests can be added.
 
 ## Completed Goals
 - [x] Allow for `Socket` *or* `AsyncSocket` to be used in `network.nim`.
 
+- [X] Rewrite code to avoid streams (unnecessary overhead).
+  - Look at `src/modernnet/buffer.nim` for this functionality.
+
+## Unplanned/Scrapped
+- Allow for the full API of encoding and decoding to be used even on sockets.
+  - I've decided that doing everything via `Buffer`s is much better as it allows for us to
+    handle errors more gracefully.

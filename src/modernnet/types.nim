@@ -37,11 +37,11 @@ type
 
   PositionFormat* = enum
     ## An enum that allows for users to choose how a Position is encoded/decoded.
-    XYZ, XZY
+    XYZ = 0'u8, XZY
 
   Position* = object ## Stores a position to an entity within a world.
-    x*, z*: int32
-    y*: int16
+    pos: int64
+    format: PositionFormat
 
 func `$`*(uuid: UUID): string = uuid.string
 
@@ -74,20 +74,30 @@ proc new*(_: typedesc[Identifier], identStr: string): Identifier =
     raise newException(MnInvalidIdentifierError,
       fmt"`{identStr}` is not a valid identifier and contains an invalid character in the value/key!")
 
+func x*(pos: Position): int32 =
+  ## Gets the X value of a position.
+  (pos.pos shr 38).int32
+
+func y*(pos: Position): int16 =
+  ## Gets the Y value of a position.
+  if pos.format == XZY:
+    (pos.pos shl 52 shr 52).int16
+
+  else:
+    ((pos.pos shr 26) and 0xFFF).int16
+
+func z*(pos: Position): int32 =
+  ## Gets the Z value of a position.
+  if pos.format == XZY:
+    ((pos.pos shl 26).ashr 38).int32
+
+  else:
+    ((pos.pos shl 38) shr 38).int32
 
 proc toPos*(val: int64, format = XZY): Position =
   ## Parses an int64 value to get the position, by default uses XZY,
   ## as that is what is used for modern MC versions (1.14+).
-  result.x = (val shr 38).int32
-
-  case format
-  of XZY:
-    result.y = (val shl 52 shr 52).int16
-    result.z = (val shl 26 shr 38).int32
-
-  of XYZ:
-    result.y = ((val shr 26) and 0xFFF).int16
-    result.z = ((val shl 38) shr 38).int32
+  Position(pos: val, format: format)
 
 proc fromPos*(pos: Position, format = XZY): int64 =
   ## Returns an int64 from a `Position`, by default uses XZY,
@@ -96,9 +106,14 @@ proc fromPos*(pos: Position, format = XZY): int64 =
     raise newException(MnInvalidPositionConstructionError,
       fmt"`{result}` is too large to be constructed!")
 
-  case format
-  of XZY:
-    return ((pos.x and 0x3FFFFFF) shl 38) or ((pos.z and 0x3FFFFFF) shl 12) or (pos.y and 0xFFF).int64
+  if pos.format == format:
+    return pos.pos
 
-  of XYZ:
-    return ((pos.x and 0x3FFFFFF) shl 38) or ((pos.y and 0xFFF) shl 26) or (pos.z and 0x3FFFFFF).int64
+  elif format == XZY:
+    return ((pos.x.int64 and 0x3FFFFFF) shl 38) or ((pos.z.int64 and 0x3FFFFFF) shl 12) or (pos.y.int64 and 0xFFF)
+
+  elif format == XYZ:
+    return ((pos.x.int64 and 0x3FFFFFF) shl 38) or ((pos.y.int64 and 0xFFF) shl 26) or (pos.z.int64 and 0x3FFFFFF)
+
+  else:
+    raise newException(MnInvalidPositionConstructionError, "How did you *get* here?")

@@ -12,17 +12,13 @@
 #! See the License for the specific language governing permissions and
 #! limitations under the License.
 
-import std/[
-  streams
-]
-
-import ".."/serialisation
+import ".."/buffer
 
 type Packet* = ref object of RootObj
   ## Base packet type that's inherited from
-  id: int32
-  data: seq[byte]
+  id*: int32
+  buffer*: Buffer
 
-proc new*(_: typedesc[Packet], id: int32, data: seq[byte]): Packet = Packet(id: id, data: data)
-proc new*(_: typedesc[Packet], strm: Stream): Packet = Packet(id: strm.readVarNum[:int32](),
-  data: cast[seq[byte]](strm.readAll()))
+proc new*(_: typedesc[Packet], id: int32, data: seq[byte]): Packet = Packet(id: id, buffer: newBuffer(data))
+proc new*(_: typedesc[Packet], buffer: Buffer): Packet = Packet(id: buffer.readVarNum[:int32](),
+  buffer: buffer)

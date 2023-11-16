@@ -13,7 +13,7 @@
 #! limitations under the License.
 
 const
-  Segment_Bits* = 0x7F
+  SegmentBits* = 0x7F
   ContinueBit* = 0x80
 
   VarIntBits* = 32
