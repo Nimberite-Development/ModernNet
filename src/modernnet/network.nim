@@ -15,7 +15,6 @@
 import std/[
   asyncdispatch, # Used for our asynchronous programming
   asyncnet,      # Used for the networking
-  streams,       # Use this to decode and encode data for encoding and decoding packets
   net
 ]
 
