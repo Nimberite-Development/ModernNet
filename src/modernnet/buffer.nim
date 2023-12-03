@@ -112,12 +112,10 @@ func readVarNum*[R: int32 | int64](b: Buffer): R {.raises: [MnEndOfBufferError, 
 func readString*(b: Buffer): string {.raises: [MnEndOfBufferError, MnPacketParsingError].} =
   ## Reads a string from a buffer
   let length = b.readVarNum[:int32]()
-  when defined(windows):
-    ## Related to nim itself bug on windows, without this line result can be wrong (example in: echo result)...
-    let stringAddress {.used.} = b.buf[b.pos..<(b.pos+length)]
-    result = cast[string](b.buf[b.pos..<(b.pos+length)])
-  else:
-    result = cast[string](b.buf[b.pos..<(b.pos+length)])
+  result.setLen(length)
+
+  let data = b.buf[b.pos..<(b.pos+length)]
+  result = cast[string](data)
 
   b.pos += length
 
