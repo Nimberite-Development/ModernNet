@@ -41,7 +41,7 @@ func buildServerListJson*(versionName: string, versionProtocol,
     import modernnet
 
     let sample = @[PlayerSample(name: "VeryRealPlayer",
-      id: "7f81c9a5-4aae-4ace-abd2-1586392441de".UUID)]
+      id: "7f81c9a5-4aae-4ace-abd2-1586392441de".parseUUID())]
     
     let serverList = buildServerListJson("1.19.4", 762, 100,
       sample.len, sample, "Much wow")

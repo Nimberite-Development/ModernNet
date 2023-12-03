@@ -15,10 +15,12 @@
 import std/[
   strformat,     # Used for pretty error printing
   strutils,      # Used for basic text manipulation (`split` for idents)
+  json,          # JSON hooks for UUIDs
   re             # Use this to validate identifiers via regex
 ]
 
 import regex
+import uuids
 
 import "."/[
   exceptions # Imported so we can raise specific errors
@@ -29,8 +31,6 @@ const
   IdentifierValueRegex = re2"[a-z0-9.-_/]"
 
 type
-  UUID* = distinct string ## A distinct string for UUIDs.
-
   Identifier* = object
     ## An MC identifier.
     namespace*, value*: string
@@ -42,8 +42,6 @@ type
   Position* = object ## Stores a position to an entity within a world.
     pos: int64
     format: PositionFormat
-
-func `$`*(uuid: UUID): string = uuid.string
 
 proc `$`*(i: Identifier): string =
   ## Get an identifier as a string.
@@ -117,3 +115,13 @@ proc fromPos*(pos: Position, format = XZY): int64 =
 
   else:
     raise newException(MnInvalidPositionConstructionError, "How did you *get* here?")
+
+func fromJsonHook*(uuid: var UUID, node: JsonNode) =
+  ## Converts a UUID from JSON.
+  uuid = node.getStr().parseUUID()
+
+func toJsonHook*(uuid: UUID): JsonNode =
+  ## Converts a UUID to JSON.
+  newJString($uuid)
+
+export UUID, parseUUID, uuids.`$`, mostSigBits, leastSigBits, initUUID

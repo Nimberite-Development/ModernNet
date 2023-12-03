@@ -47,7 +47,13 @@ func writeVarNum*[R: int32 | int64](b: Buffer, value: R) =
     b.writeNum(cast[uint8]((val and SegmentBits) or ContinueBit))
     val = val shr 7
 
+func writeUUID*(b: Buffer, uuid: UUID) =
+  ## Writes a UUID to a buffer
+  b.writeNum[:int64](uuid.mostSigBits())
+  b.writeNum[:int64](uuid.leastSigBits())
+
 func writeString*(b: Buffer, s: string) =
+  ## Writes a string to a buffer
   b.writeVarNum[:int32](s.len.int32)
   if (b.pos + s.len) > b.buf.len:
     b.buf.setLen(b.pos + s.len)
@@ -109,13 +115,24 @@ func readVarNum*[R: int32 | int64](b: Buffer): R {.raises: [MnEndOfBufferError, 
     else:
       {.error: "Deserialisation of `" & $R & "` is not implemented!".}
 
-func readString*(b: Buffer): string {.raises: [MnEndOfBufferError, MnPacketParsingError].} =
+func readUUID*(b: Buffer): UUID =
+  ## Reads a UUID from a buffer
+  initUUID(b.readNum[:int64](), b.readNum[:int64]())
+
+func readString*(b: Buffer, maxLength = 32767): string {.raises: [MnEndOfBufferError, MnPacketParsingError].} =
   ## Reads a string from a buffer
   let length = b.readVarNum[:int32]()
+
+  if length > maxLength * 3:
+    raise newException(MnStringTooLongParsingError, "String is too long!")
+
   result.setLen(length)
 
   let data = b.buf[b.pos..<(b.pos+length)]
   result = cast[string](data)
+
+  if result.len > maxLength:
+    raise newException(MnStringTooLongParsingError, "String is too long!")
 
   b.pos += length
 

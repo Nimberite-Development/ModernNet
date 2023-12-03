@@ -26,4 +26,6 @@ type
 
   MnInvalidPositionConstructionError* = object of MnPacketConstructionError
 
+  MnStringTooLongParsingError* = object of MnPacketParsingError
+
   MnConnectionClosedError* = object of MnError

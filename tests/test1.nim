@@ -60,7 +60,18 @@ test "VarNum tests":
   assert buffer.readVarNum[:int64]() == c, "VarLong test 1 failed!"
   assert buffer.readVarNum[:int64]() == d, "VarLong test 2 failed!"
 
-test "String parsing":
+test "UUID parsing/serialising":
+  var buffer = newBuffer()
+
+  var a = parseUUID("7f81c9a5-4aae-4ace-abd2-1586392441de")
+
+  buffer.writeUUID(a)
+
+  buffer.pos = 0
+
+  assert buffer.readUUID() == a, "UUID test failed!"
+
+test "String parsing/serialising":
   var buffer = newBuffer()
 
   var a = "Hello world!"
