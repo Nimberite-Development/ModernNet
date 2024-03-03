@@ -1,37 +1,30 @@
 import ./[
   exceptions,
-  constants,
   types
 ]
 
-import ./private/stew/endians2
+import ./private/[
+  constants,
+  utils
+]
 
 type
   Buffer* = ref object
     buf*: seq[byte]
     pos*: int
 
-  NumberN* = byte | int8 | int16 | int32 | int64 | uint8 | uint16 | uint32 | uint64 | float32 | float64
+func len*(b: Buffer): int = b.buf.len
 
 func newBuffer*(data: openArray[byte] = newSeq[byte]()): Buffer =
   Buffer(buf: @data)
 
 # Writing
-func writeNum*[R: NumberN | bool](b: Buffer, value: R) =
+func writeNum*[R: SizedNum](b: Buffer, value: R) =
   ## Writes any numeric type or boolean to a buffer
-  if (b.pos + sizeof(R)) > b.buf.len:
+  if (b.pos + sizeof(R)) > b.len:
     b.buf.setLen(b.pos + sizeof(R))
 
-  when sizeof(R) == 1:
-    b.buf[b.pos] = cast[byte](value)
-  elif sizeof(R) == 2:
-    b.buf[b.pos..<(b.pos+sizeof(R))] = cast[uint16](value).toBytesBE
-  elif sizeof(R) == 4:
-    b.buf[b.pos..<(b.pos+sizeof(R))] = cast[uint32](value).toBytesBE
-  elif sizeof(R) == 8:
-    b.buf[b.pos..<(b.pos+sizeof(R))] = cast[uint64](value).toBytesBE
-  else:
-    {.error: "Serialisation of `" & $R & "` is not implemented!".}
+  deposit(value, b.buf.toOpenArray(b.pos, b.pos + sizeof(R) - 1))
 
   b.pos += sizeof(R)
 
@@ -71,25 +64,16 @@ template writePosition*(b: Buffer, p: Position, format = XZY) =
 
 
 # Reading
-func readNum*[R: NumberN | bool](b: Buffer): R {.raises: [MnEndOfBufferError].} =
+func readNum*[R: SizedNum](b: Buffer): R {.raises: [MnEndOfBufferError, ValueError].} =
   ## Reads any numeric type or boolean from a buffer
   if (b.pos + sizeof(R)) > b.buf.len:
     raise newException(MnEndOfBufferError, "Reached the end of the buffer while trying to read a " & $R & '!')
 
-  result = when sizeof(R) == 1:
-    cast[R](b.buf[b.pos])
-  elif sizeof(R) == 2:
-    cast[R](fromBytesBE(uint16, b.buf[b.pos..<(b.pos+sizeof(R))]))
-  elif sizeof(R) == 4:
-    cast[R](fromBytesBE(uint32, b.buf[b.pos..<(b.pos+sizeof(R))]))
-  elif sizeof(R) == 8:
-    cast[R](fromBytesBE(uint64, b.buf[b.pos..<(b.pos+sizeof(R))]))
-  else:
-    {.error: "Deserialisation of `" & $R & "` is not implemented!".}
+  result = b.buf.toOpenArray(b.pos, b.pos + sizeof(R) - 1).extract(R)
 
   b.pos += sizeof(R)
 
-func readVarNum*[R: int32 | int64](b: Buffer): R {.raises: [MnEndOfBufferError, MnPacketParsingError].} =
+func readVarNum*[R: int32 | int64](b: Buffer): R {.raises: [MnEndOfBufferError, ValueError, MnPacketParsingError].} =
   ## Reads a VarInt or a VarLong from a buffer
   var
     position: int8 = 0
@@ -119,7 +103,7 @@ func readUUID*(b: Buffer): UUID =
   ## Reads a UUID from a buffer
   initUUID(b.readNum[:int64](), b.readNum[:int64]())
 
-func readString*(b: Buffer, maxLength = 32767): string {.raises: [MnEndOfBufferError, MnPacketParsingError].} =
+func readString*(b: Buffer, maxLength = 32767): string {.raises: [MnEndOfBufferError, ValueError, MnPacketParsingError].} =
   ## Reads a string from a buffer
   let length = b.readVarNum[:int32]()
 

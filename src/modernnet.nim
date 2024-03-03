@@ -15,14 +15,14 @@
 import "."/modernnet/[
   exceptions,
   helpers,
-  network,
   buffer,
-  types
+  types,
+  io
 ]
 
 export
   exceptions,
   helpers,
-  network,
   buffer,
-  types
+  types,
+  io

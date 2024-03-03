@@ -30,14 +30,14 @@ test "`readNum` and `writeNum`":
 
   buffer.pos = 0
 
-  assert buffer.readNum[:int8]() == a, "int8 test failed!"
-  assert buffer.readNum[:int16]() == b, "int16 test failed!"
-  assert buffer.readNum[:int32]() == c, "int32 test failed!"
-  assert buffer.readNum[:int64]() == d, "int64 test failed!"
-  assert buffer.readNum[:uint8]() == e, "uint8 test failed!"
-  assert buffer.readNum[:uint64]() == f, "uint64 test failed!"
-  assert buffer.readNum[:bool]() == g, "bool test (true) failed!"
-  assert buffer.readNum[:bool]() == h, "bool test (false) failed!"
+  check buffer.readNum[:int8]() == a
+  check buffer.readNum[:int16]() == b
+  check buffer.readNum[:int32]() == c
+  check buffer.readNum[:int64]() == d
+  check buffer.readNum[:uint8]() == e
+  check buffer.readNum[:uint64]() == f
+  check buffer.readNum[:bool]() == g
+  check buffer.readNum[:bool]() == h
 
 test "VarNum tests":
   var
