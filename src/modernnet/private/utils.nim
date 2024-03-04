@@ -41,7 +41,7 @@ proc extract*[T: SizedNum](oa: openArray[byte], _: typedesc[T]): T =
 
   cast[T](unsignedSize(T).fromBytesBE(oa.toOpenArray(0, sizeof(T) - 1)))
 
-proc deposit*[T: SizedNum](value: T, oa: out openArray[byte]) =
+proc deposit*[T: SizedNum](value: T, oa: var openArray[byte]) =
   if oa.len < sizeof(T):
     raise newException(ValueError, "The buffer was to small to deposit a " & $T & '!')
 

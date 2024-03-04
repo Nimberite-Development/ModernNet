@@ -101,3 +101,25 @@ test "Position serialising and deserialising":
   assert fromPos(xzyPos, XYZ) == xyz, "XZY position did not match the XYZ when converted!"
   assert fromPos(xyzPos, XYZ) == xyz, "XYZ position did not match!"
   assert fromPos(xyzPos, XZY) == xzy, "XYZ position did not match the XZY when converted!"
+
+test "IO read/write test":
+  # Set up the buffer
+  var buffer = newBuffer()
+
+  buffer.writeVarNum[:int32](0x27)
+  buffer.writeVarNum[:int32](2)
+  buffer.writeNum(23142)
+
+  buffer.pos = 0
+
+  # Commence tests~
+  var b: seq[byte] # Pretend this is a buffered socket
+
+  var res = readRawPacket(b)
+
+  while not res.isOk:
+    b.add buffer.readNum[:byte]()
+    echo b
+    res = readRawPacket(b)
+
+  echo res

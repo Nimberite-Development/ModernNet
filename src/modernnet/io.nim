@@ -21,24 +21,47 @@ import ./private/[
   utils
 ]
 
-using receive_bytes: proc(_: int): seq[byte]
+type
+  RawPacket* = object
+    id*: int
+    buf*: Buffer
 
-proc read[R: SizedNum](_: typedesc[R], receive_bytes): R =
-  ## Reads any numeric type or boolean from the callback
-  let bytes = receive_bytes(sizeof(R))
-  bytes.extract(R)
+  MnIoResult*[T] = object
+    case isOk*: bool
+    of true:
+      ok*: T ## The value if the call was successful
+    of false:
+      err*: int ## How many bytes are needed to complete the call
 
-proc readVar[R: int32 | int64](_: typedesc[R], receive_bytes): R =
-  ## Reads a VarInt or a VarLong from the callback
+proc read[R: SizedNum](_: typedesc[R], data: openArray[byte]): (MnIoResult[R], int) =
+  ## Reads any numeric type or boolean from the provided bytes
+  if data.len > sizeof(R):
+    return (MnIoResult[R](isOk: false, err: data.len - sizeof(R)), 0)
+
+  if data.len < sizeof(R):
+    return (MnIoResult[R](isOk: false, err: sizeof(R) - data.len), 0)
+
+  (MnIoResult[R](isOk: true, ok: data.extract(R)), sizeof(R))
+
+proc readVar[R: int32 | int64](_: typedesc[R], data: openArray[byte]): (MnIoResult[R], int) =
+  ## Reads a VarInt or a VarLong from the provided bytes
   var
+    res: R = 0.R
+    currentByte: MnIoResult[int8]
     position: int8 = 0
-    currentByte: int8
 
   while true:
-    currentByte = read(int8, receive_bytes)
-    result = result or ((currentByte.R and SegmentBits) shl position)
+    if data.len < position:
+      return (MnIoResult[R](isOk: false, err: data.len - position + 1), 0)
 
-    if (currentByte and ContinueBit) == 0:
+    currentByte = read(int8, data)[0]
+
+    if not currentByte.isOk:
+      return (MnIoResult[R](isOk: false, err: currentByte.err), 0)
+
+    res = res or ((currentByte.ok.R and SegmentBits) shl position)
+
+    if (currentByte.ok and ContinueBit) == 0:
       break
 
     position += 7
@@ -54,8 +77,19 @@ proc readVar[R: int32 | int64](_: typedesc[R], receive_bytes): R =
     else:
       {.error: "Deserialisation of `" & $R & "` is not implemented!".}
 
-proc readRawPacket*(receive_bytes): (int, Buffer) =
-  let packetId = readVar(int32, receive_bytes)
-  let length = readVar(int32, receive_bytes)
+  (MnIoResult[R](isOk: true, ok: res), (position / 7).int)
 
-  return (packetId.int, newBuffer(receive_bytes(length)))
+proc readRawPacket*(data: openArray[byte]): MnIoResult[RawPacket] =
+  let id = readVar(int32, data)
+
+  if not id[0].isOk:
+    return MnIoResult[RawPacket](isOk: false, err: id[0].err)
+
+  let length = readVar(int32, data.toOpenArray(id[1] + 1, data.len - 1))
+
+  if not length[0].isOk:
+    return MnIoResult[RawPacket](isOk: false, err: length[0].err)
+
+  MnIoResult[RawPacket](isOk: true,
+    ok: RawPacket(id: id[0].ok, buf: newBuffer(data.toOpenArray(id[1] + length[1], id[1] + length[1] + length[0].ok)))
+  )
