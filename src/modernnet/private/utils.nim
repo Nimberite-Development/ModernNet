@@ -32,7 +32,7 @@ template unsignedSize(T: typedesc): typedesc =
   else:
     {.error: "Deserialisation of `" & $T & "` is not implemented!".}
 
-proc extract*[T: SizedNum](oa: openArray[byte], _: typedesc[T]): T =
+func extract*[T: SizedNum](oa: openArray[byte], _: typedesc[T]): T {.raises: [ValueError].} =
   if oa.len < sizeof(T):
     raise newException(ValueError, "The buffer was to small to extract a " & $T & '!')
 
@@ -41,7 +41,7 @@ proc extract*[T: SizedNum](oa: openArray[byte], _: typedesc[T]): T =
 
   cast[T](unsignedSize(T).fromBytesBE(oa.toOpenArray(0, sizeof(T) - 1)))
 
-proc deposit*[T: SizedNum](value: T, oa: var openArray[byte]) =
+func deposit*[T: SizedNum](value: T, oa: var openArray[byte]) {.raises: [ValueError].} =
   if oa.len < sizeof(T):
     raise newException(ValueError, "The buffer was to small to deposit a " & $T & '!')
 

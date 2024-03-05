@@ -107,8 +107,8 @@ test "IO read/write test":
   var buffer = newBuffer()
 
   buffer.writeVarNum[:int32](0x27)
-  buffer.writeVarNum[:int32](2)
-  buffer.writeNum(23142)
+  buffer.writeVarNum[:int32](8)
+  buffer.writeNum[:int64](23142)
 
   buffer.pos = 0
 
@@ -117,9 +117,23 @@ test "IO read/write test":
 
   var res = readRawPacket(b)
 
+  var i = 0
+
   while not res.isOk:
-    b.add buffer.readNum[:byte]()
-    echo b
+    i += 1
+
+    if i in [1, 2]:
+      check res.err == 1
+    elif i == 3:
+      check res.err == 8
+    else:
+      echo "[ERROR] Unimplemented test case where `i` was " & $i & '.'
+      fail
+
+    b = buffer.buf[0..<(b.len + res.err)]
     res = readRawPacket(b)
 
-  echo res
+  check res.ok.packet.id == 0x27
+  check res.ok.packet.buf.readVarNum[:int32]() == 8
+  check res.ok.packet.buf.readNum[:int64]() == 23142
+  check res.ok.bytesRead == 10

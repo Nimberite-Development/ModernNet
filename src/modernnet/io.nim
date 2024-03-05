@@ -12,56 +12,51 @@
 #! See the License for the specific language governing permissions and
 #! limitations under the License.
 
+import std/options
+
 import ./[
   exceptions,
   buffer
 ]
 import ./private/[
-  constants,
-  utils
+  constants
 ]
 
 type
+  Result*[T, E] = object
+    case isOk*: bool
+    of true:
+      when T isnot void:
+        ok*: T
+
+    of false:
+      when E isnot void:
+        err*: E
+
   RawPacket* = object
     id*: int
     buf*: Buffer
 
-  MnIoResult*[T] = object
-    case isOk*: bool
-    of true:
-      ok*: T ## The value if the call was successful
-    of false:
-      err*: int ## How many bytes are needed to complete the call
+func readVar*[R: int32 | int64](data: openArray[byte], pos: var int): Result[R, int] =
+  ## Reads a VarInt or a VarLong from the given byte sequence
+  result = typeof(result)(isOk: false, err: 0)
 
-proc read[R: SizedNum](_: typedesc[R], data: openArray[byte]): (MnIoResult[R], int) =
-  ## Reads any numeric type or boolean from the provided bytes
-  if data.len > sizeof(R):
-    return (MnIoResult[R](isOk: false, err: data.len - sizeof(R)), 0)
-
-  if data.len < sizeof(R):
-    return (MnIoResult[R](isOk: false, err: sizeof(R) - data.len), 0)
-
-  (MnIoResult[R](isOk: true, ok: data.extract(R)), sizeof(R))
-
-proc readVar[R: int32 | int64](_: typedesc[R], data: openArray[byte]): (MnIoResult[R], int) =
-  ## Reads a VarInt or a VarLong from the provided bytes
   var
-    res: R = 0.R
-    currentByte: MnIoResult[int8]
-    position: int8 = 0
+    res: R
+    position: int8
+    currentByte: byte
 
   while true:
-    if data.len < position:
-      return (MnIoResult[R](isOk: false, err: data.len - position + 1), 0)
+    if pos >= data.len:
+      result.err = pos + 1
+      return
 
-    currentByte = read(int8, data)[0]
+    currentByte = data[pos]
+    res = res or ((currentByte.R and SegmentBits) shl position)
 
-    if not currentByte.isOk:
-      return (MnIoResult[R](isOk: false, err: currentByte.err), 0)
+    pos += 1
 
-    res = res or ((currentByte.ok.R and SegmentBits) shl position)
-
-    if (currentByte.ok and ContinueBit) == 0:
+    if (currentByte and ContinueBit) == 0:
       break
 
     position += 7
@@ -77,19 +72,23 @@ proc readVar[R: int32 | int64](_: typedesc[R], data: openArray[byte]): (MnIoResu
     else:
       {.error: "Deserialisation of `" & $R & "` is not implemented!".}
 
-  (MnIoResult[R](isOk: true, ok: res), (position / 7).int)
+  return typeof(result)(isOk: true, ok: res)
 
-proc readRawPacket*(data: openArray[byte]): MnIoResult[RawPacket] =
-  let id = readVar(int32, data)
+func readRawPacket*(data: openArray[byte]): Result[tuple[packet: RawPacket, bytesRead: int], int] =
+  var pos = 0
+  let id = data.readVar[:int32](pos)
 
-  if not id[0].isOk:
-    return MnIoResult[RawPacket](isOk: false, err: id[0].err)
+  if not id.isOk:
+    return typeof(result)(isOk: false, err: id.err - data.len)
 
-  let length = readVar(int32, data.toOpenArray(id[1] + 1, data.len - 1))
+  let
+    idPos = pos
+    length = data.readVar[:int32](pos)
 
-  if not length[0].isOk:
-    return MnIoResult[RawPacket](isOk: false, err: length[0].err)
+  if not length.isOk:
+    return typeof(result)(isOk: false, err: length.err - data.len)
 
-  MnIoResult[RawPacket](isOk: true,
-    ok: RawPacket(id: id[0].ok, buf: newBuffer(data.toOpenArray(id[1] + length[1], id[1] + length[1] + length[0].ok)))
-  )
+  if data.len < (pos + length.ok):
+    return typeof(result)(isOk: false, err: (pos + length.ok) - data.len)
+
+  return typeof(result)(isOk: true, ok: (RawPacket(id: id.ok, buf: newBuffer(data[idPos..<(pos + length.ok)])), pos + length.ok))

@@ -1,76 +1,32 @@
 # ModernNet
 ModernNet is a barebones library to interact with the Minecraft Java Edition protocol!
 
-A very basic skeleton of a server is written here, however it does not handle logging into the server at all.
-
+To support IO, I've taken the [Sans-I/O](https://sans-io.readthedocs.io/how-to-sans-io.html)
+approach, separating the protocol from the IO, it can easily be implemented in any library with
+this code:
 ```nim
-import std/[asyncdispatch, asyncnet, strutils]
+# Set up the buffer
+var buffer = newBuffer()
 
-import modernnet
+buffer.writeVarNum[:int32](0x27)
+buffer.writeVarNum[:int32](8)
+buffer.writeNum[:int64](23142)
 
-proc processClient(client: AsyncSocket) {.async.} =
-  var state = 0
+buffer.pos = 0
 
-  while not client.isClosed():
-    let
-      packetLength = await client.readVarNum[:int32]()
-      packet = await client.read(packetLength)
-      packetId = packet.readVarNum[:int32]()
+# Commence tests~
+var b: seq[byte] # Pretend this is a buffered socket
 
-    echo "Packet ID: " & $packetId
+var res = readRawPacket(b)
 
-    if packetId == 0x00:
-      if state == 0:
-        let
-          version = packet.readVarNum[:int32]()
-          address = packet.readString()
-          port = packet.readNum[:uint16]
+while not res.isOk:
+  b.add buffer.readNum[:byte]()
+  res = readRawPacket(b)
 
-        state = packet.readVarNum[:int32]()
-        continue
-
-      elif state == 1:
-        var response = newBuffer()
-        response.writeVarNum(0x00)
-        response.writeString($buildServerListJson("1.7.10", 5, 10, 0))
-
-        await client.write(response)
-        continue
-
-      else:
-        echo "Unimplemented state: " & $state
-        continue
-
-    elif packetId == 0x01:
-      let payload = packet.readNum[:int64]()
-
-      var b = newBuffer()
-      b.writeNum(payload)
-
-      await client.write(b)
-
-      client.close()
-
-      continue
-
-    else:
-      echo "Unimplemented packet: " & $packetId
-      continue
-
-
-proc serve() {.async.} =
-  var server = newAsyncSocket()
-  server.setSockOpt(OptReuseAddr, true)
-  server.bindAddr(Port(12345))
-  server.listen()
-  
-  while true:
-    let client = await server.accept()
-    asyncCheck processClient(client)
-
-asyncCheck serve()
-echo "Started server"
-runForever()
+assert res.ok.packet.id == 0x27
+assert res.ok.packet.buf.readVarNum[:int32]() == 8
+assert res.ok.packet.buf.readNum[:int64]() == 23142
+assert res.ok.bytesRead == 10 # The ID, length and the data in the buffer
 ```
 
 ## Useful Notes

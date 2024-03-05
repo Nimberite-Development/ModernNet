@@ -19,7 +19,7 @@ func newBuffer*(data: openArray[byte] = newSeq[byte]()): Buffer =
   Buffer(buf: @data)
 
 # Writing
-func writeNum*[R: SizedNum](b: Buffer, value: R) =
+func writeNum*[R: SizedNum](b: Buffer, value: R) {.raises: [ValueError].} =
   ## Writes any numeric type or boolean to a buffer
   if (b.pos + sizeof(R)) > b.len:
     b.buf.setLen(b.pos + sizeof(R))
@@ -28,7 +28,7 @@ func writeNum*[R: SizedNum](b: Buffer, value: R) =
 
   b.pos += sizeof(R)
 
-func writeVarNum*[R: int32 | int64](b: Buffer, value: R) =
+func writeVarNum*[R: int32 | int64](b: Buffer, value: R) {.raises: [ValueError].} =
   ## Writes a VarInt or a VarLong to a buffer
   var val = value
 
