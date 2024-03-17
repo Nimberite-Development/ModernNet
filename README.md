@@ -31,8 +31,8 @@ assert res.ok.bytesRead == 10 # The ID, length and the data in the buffer
 
 ## Useful Notes
 An empty packet with size 0 needs to be handled by the user currently,
-in the example code, `if packetLength <= 0: return` is enough for
-this to not have an effect.
+`if packetLength <= 0: return` is enough to usually detect if a socket
+has closed.
 
 ## To-Dos
 - [ ] Work on better documentation, with more examples.
@@ -50,8 +50,6 @@ this to not have an effect.
   - A W.I.P server is being made with this library so that more tests can be added.
 
 ## Completed Goals
-- [x] Allow for `Socket` *or* `AsyncSocket` to be used in `network.nim`.
-
 - [X] Rewrite code to avoid streams (unnecessary overhead).
   - Look at `src/modernnet/buffer.nim` for this functionality.
 
