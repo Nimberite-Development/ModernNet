@@ -40,7 +40,7 @@ func isValidValue(s: string): bool =
   for c in s:
     if not (c >= 'a' and c <= 'z') and
        not (c >= '0' and c <= '9') and
-       not (c in ".-_"):
+       not (c in ".-_/"):
       return false
 
 type
