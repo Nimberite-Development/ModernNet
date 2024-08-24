@@ -14,7 +14,7 @@
 
 import std/options
 
-import ./[
+import "."/[
   exceptions,
   buffer
 ]

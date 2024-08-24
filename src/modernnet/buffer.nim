@@ -1,4 +1,4 @@
-import ./[
+import "."/[
   exceptions,
   types
 ]

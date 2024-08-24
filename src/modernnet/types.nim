@@ -19,16 +19,29 @@ import std/[
   re             # Use this to validate identifiers via regex
 ]
 
-import regex
 import uuids
 
 import "."/[
   exceptions # Imported so we can raise specific errors
 ]
 
-const
-  IdentifierNamespaceRegex = re2"[a-z0-9.-_]"
-  IdentifierValueRegex = re2"[a-z0-9.-_/]"
+func isValidIdentifier(s: string): bool =
+  ## Equivalent to the regex `[a-z0-9.-_]`
+  result = true
+  for c in s:
+    if not (c >= 'a' and c <= 'z') and
+       not (c >= '0' and c <= '9') and
+       not (c in ".-_"):
+      return false
+
+func isValidValue(s: string): bool =
+  ## Equivalent to the regex `[a-z0-9.-_/]`
+  result = true
+  for c in s:
+    if not (c >= 'a' and c <= 'z') and
+       not (c >= '0' and c <= '9') and
+       not (c in ".-_"):
+      return false
 
 type
   Identifier* = object
@@ -60,7 +73,7 @@ proc new*(_: typedesc[Identifier], identStr: string): Identifier =
     result.namespace = ident[0]
     result.value = ident[1]
 
-    if not match(result.namespace, IdentifierNamespaceRegex):
+    if not result.namespace.isValidIdentifier:
       raise newException(MnInvalidIdentifierError,
         fmt"`{identStr}` is not a valid identifier and contains an invalid character in the namespace!")
 
@@ -68,7 +81,7 @@ proc new*(_: typedesc[Identifier], identStr: string): Identifier =
     raise newException(MnInvalidIdentifierError,
       fmt"`{identStr}` has too many colons, making it an invalid identifier!")
 
-  if not match(result.value, IdentifierValueRegex):
+  if not result.value.isValidValue:
     raise newException(MnInvalidIdentifierError,
       fmt"`{identStr}` is not a valid identifier and contains an invalid character in the value/key!")
 
