@@ -37,11 +37,13 @@ type
     id*: int
     buf*: Buffer
 
-func readVar*[R: int32 | int64](data: openArray[byte], pos: var int): Result[R, int] =
+
+func readVar*[R: int32 | int64](data: openArray[byte]): Result[tuple[num: R, bytesRead: int], int] =
   ## Reads a VarInt or a VarLong from the given byte sequence
   result = typeof(result)(isOk: false, err: 0)
 
   var
+    pos = 0
     res: R
     position: int8
     currentByte: byte
@@ -72,23 +74,28 @@ func readVar*[R: int32 | int64](data: openArray[byte], pos: var int): Result[R, 
     else:
       {.error: "Deserialisation of `" & $R & "` is not implemented!".}
 
-  return typeof(result)(isOk: true, ok: res)
+  return typeof(result)(isOk: true, ok: (res, pos))
+
 
 func readRawPacket*(data: openArray[byte]): Result[tuple[packet: RawPacket, bytesRead: int], int] =
   var pos = 0
-  let id = data.readVar[:int32](pos)
+  let id = data.readVar[:int32]()
 
   if not id.isOk:
     return typeof(result)(isOk: false, err: id.err - data.len)
 
+  pos += id.ok.bytesRead
+
   let
     idPos = pos
-    length = data.readVar[:int32](pos)
+    length = data.readVar[:int32]()
 
   if not length.isOk:
     return typeof(result)(isOk: false, err: length.err - data.len)
 
-  if data.len < (pos + length.ok):
-    return typeof(result)(isOk: false, err: (pos + length.ok) - data.len)
+  pos += length.ok.bytesRead
 
-  return typeof(result)(isOk: true, ok: (RawPacket(id: id.ok, buf: newBuffer(data[idPos..<(pos + length.ok)])), pos + length.ok))
+  if data.len < (pos + length.ok.num):
+    return typeof(result)(isOk: false, err: (pos + length.ok.num) - data.len)
+
+  return typeof(result)(isOk: true, ok: (RawPacket(id: id.ok.num, buf: newBuffer(data[idPos..<(pos + length.ok.num)])), pos + length.ok.num))
