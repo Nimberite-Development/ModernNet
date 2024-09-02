@@ -78,24 +78,19 @@ func readVar*[R: int32 | int64](data: openArray[byte]): Result[tuple[num: R, byt
 
 
 func readRawPacket*(data: openArray[byte]): Result[tuple[packet: RawPacket, bytesRead: int], int] =
-  var pos = 0
   let id = data.readVar[:int32]()
 
   if not id.isOk:
-    return typeof(result)(isOk: false, err: id.err - data.len)
+    return typeof(result)(isOk: false, err: id.err)
 
-  pos += id.ok.bytesRead
-
-  let
-    idPos = pos
-    length = data.readVar[:int32]()
+  let length = data[id.ok.bytesRead..^1].readVar[:int32]()
 
   if not length.isOk:
-    return typeof(result)(isOk: false, err: length.err - data.len)
+    return typeof(result)(isOk: false, err: length.err)
 
-  pos += length.ok.bytesRead
+  let lenPos = id.ok.bytesRead + length.ok.bytesRead
 
-  if data.len < (pos + length.ok.num):
-    return typeof(result)(isOk: false, err: (pos + length.ok.num) - data.len)
+  if data.len - lenPos < length.ok.num:
+    return typeof(result)(isOk: false, err: lenPos + length.ok.num - data.len)
 
-  return typeof(result)(isOk: true, ok: (RawPacket(id: id.ok.num, buf: newBuffer(data[idPos..<(pos + length.ok.num)])), pos + length.ok.num))
+  return typeof(result)(isOk: true, ok: (RawPacket(id: id.ok.num, buf: newBuffer(data[lenPos..<(lenPos + length.ok.num)])), lenPos + length.ok.num))

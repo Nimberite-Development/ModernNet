@@ -115,25 +115,32 @@ test "IO read/write test":
   # Commence tests~
   var b: seq[byte] # Pretend this is a buffered socket
 
-  var res = readRawPacket(b)
-
-  var i = 0
+  var
+    res = readRawPacket(b)
+    counter = 0
 
   while not res.isOk:
-    i += 1
+    for i in 0..<res.err: b.add(buffer.readNum[:byte]())
 
-    if i in [1, 2]:
+    inc counter
+
+    if counter < 3:
+      # Check if variable length numbers are read correctly
       check res.err == 1
-    elif i == 3:
-      check res.err == 8
     else:
-      echo "[ERROR] Unimplemented test case where `i` was " & $i & '.'
-      fail
+      # Check if the length was also read correctly.
+      check res.err == 8
 
-    b = buffer.buf[0..<(b.len + res.err)]
     res = readRawPacket(b)
 
+  # Check packet ID
   check res.ok.packet.id == 0x27
-  check res.ok.packet.buf.readVarNum[:int32]() == 8
-  check res.ok.packet.buf.readNum[:int64]() == 23142
+
+  # Use parsed buffer
+  buffer = res.ok.packet.buf
+
+  # Length should be omitted in parsed buffer.
+  check buffer.readNum[:int64]() == 23142
+
+  # Check if the total bytes read was also correct
   check res.ok.bytesRead == 10
