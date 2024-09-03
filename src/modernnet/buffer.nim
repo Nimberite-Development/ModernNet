@@ -28,7 +28,7 @@ func writeNum*[R: SizedNum](b: Buffer, value: R) {.raises: [ValueError].} =
 
   b.pos += sizeof(R)
 
-func writeVarNum*[R: int32 | int64](b: Buffer, value: R) {.raises: [ValueError].} =
+func writeVar*[R: int32 | int64](b: Buffer, value: R) {.raises: [ValueError].} =
   ## Writes a VarInt or a VarLong to a buffer
   var val = value
 
@@ -47,7 +47,7 @@ func writeUUID*(b: Buffer, uuid: UUID) =
 
 func writeString*(b: Buffer, s: string) =
   ## Writes a string to a buffer
-  b.writeVarNum[:int32](s.len.int32)
+  b.writeVar[:int32](s.len.int32)
   if (b.pos + s.len) > b.buf.len:
     b.buf.setLen(b.pos + s.len)
 
@@ -73,7 +73,7 @@ func readNum*[R: SizedNum](b: Buffer): R {.raises: [MnEndOfBufferError, ValueErr
 
   b.pos += sizeof(R)
 
-func readVarNum*[R: int32 | int64](b: Buffer): R {.raises: [MnEndOfBufferError, ValueError, MnPacketParsingError].} =
+func readVar*[R: int32 | int64](b: Buffer): R {.raises: [MnEndOfBufferError, ValueError, MnPacketParsingError].} =
   ## Reads a VarInt or a VarLong from a buffer
   var
     position: int8 = 0
@@ -105,7 +105,7 @@ func readUUID*(b: Buffer): UUID =
 
 func readString*(b: Buffer, maxLength = 32767): string {.raises: [MnEndOfBufferError, ValueError, MnPacketParsingError].} =
   ## Reads a string from a buffer
-  let length = b.readVarNum[:int32]()
+  let length = b.readVar[:int32]()
 
   if length > maxLength * 3:
     raise newException(MnStringTooLongParsingError, "String is too long!")

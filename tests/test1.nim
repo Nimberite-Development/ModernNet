@@ -48,17 +48,17 @@ test "VarNum tests":
 
   var buffer = newBuffer()
 
-  buffer.writeVarNum(a)
-  buffer.writeVarNum(b)
-  buffer.writeVarNum(c)
-  buffer.writeVarNum(d)
+  buffer.writeVar(a)
+  buffer.writeVar(b)
+  buffer.writeVar(c)
+  buffer.writeVar(d)
 
   buffer.pos = 0
 
-  assert buffer.readVarNum[:int32]() == a, "VarInt test 1 failed!"
-  assert buffer.readVarNum[:int32]() == b, "VarInt test 2 failed!"
-  assert buffer.readVarNum[:int64]() == c, "VarLong test 1 failed!"
-  assert buffer.readVarNum[:int64]() == d, "VarLong test 2 failed!"
+  assert buffer.readVar[:int32]() == a, "VarInt test 1 failed!"
+  assert buffer.readVar[:int32]() == b, "VarInt test 2 failed!"
+  assert buffer.readVar[:int64]() == c, "VarLong test 1 failed!"
+  assert buffer.readVar[:int64]() == d, "VarLong test 2 failed!"
 
 test "UUID parsing/serialising":
   var buffer = newBuffer()
@@ -106,8 +106,11 @@ test "IO read/write test":
   # Set up the buffer
   var buffer = newBuffer()
 
-  buffer.writeVarNum[:int32](0x27)
-  buffer.writeVarNum[:int32](8)
+  # Packet size
+  buffer.writeVar[:int32](9)
+  # Packet ID
+  buffer.writeVar[:int32](0x27)
+  # Some data
   buffer.writeNum[:int64](23142)
 
   buffer.pos = 0
@@ -120,16 +123,14 @@ test "IO read/write test":
     counter = 0
 
   while not res.isOk:
-    for i in 0..<res.err: b.add(buffer.readNum[:byte]())
-
     inc counter
 
-    if counter < 3:
-      # Check if variable length numbers are read correctly
+    for i in 0..<res.err: b.add(buffer.readNum[:byte]())
+
+    if counter < 2:
       check res.err == 1
     else:
-      # Check if the length was also read correctly.
-      check res.err == 8
+      check res.err == 9
 
     res = readRawPacket(b)
 

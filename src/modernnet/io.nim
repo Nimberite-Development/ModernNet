@@ -78,19 +78,21 @@ func readVar*[R: int32 | int64](data: openArray[byte]): Result[tuple[num: R, byt
 
 
 func readRawPacket*(data: openArray[byte]): Result[tuple[packet: RawPacket, bytesRead: int], int] =
-  let id = data.readVar[:int32]()
-
-  if not id.isOk:
-    return typeof(result)(isOk: false, err: id.err)
-
-  let length = data[id.ok.bytesRead..^1].readVar[:int32]()
+  ## Reads a packet from the given byte sequence and returns a `RawPacket` that has the ID and the buffer.
+  ## Returns an error if the packet is too short.
+  let length = data.readVar[:int32]()
 
   if not length.isOk:
+    # Returns how many bytes we need to continue.
     return typeof(result)(isOk: false, err: length.err)
 
-  let lenPos = id.ok.bytesRead + length.ok.bytesRead
+  if data.len < length.ok.num - length.ok.bytesRead:
+    # Returns how many bytes that we expect, based on the given length.
+    return typeof(result)(isOk: false, err: length.ok.num + length.ok.bytesRead - data.len)
 
-  if data.len - lenPos < length.ok.num:
-    return typeof(result)(isOk: false, err: lenPos + length.ok.num - data.len)
+  let id = data[length.ok.bytesRead..^1].readVar[:int32]()
 
-  return typeof(result)(isOk: true, ok: (RawPacket(id: id.ok.num, buf: newBuffer(data[lenPos..<(lenPos + length.ok.num)])), lenPos + length.ok.num))
+  typeof(result)(isOk: true, ok: (
+    RawPacket(id: id.ok.num, buf: newBuffer(data[(length.ok.bytesRead + id.ok.bytesRead)..^1])),
+    length.ok.bytesRead + length.ok.num
+  ))
