@@ -92,6 +92,9 @@ func readRawPacket*(data: openArray[byte]): Result[tuple[packet: RawPacket, byte
 
   let id = data[length.ok.bytesRead..^1].readVar[:int32]()
 
+  if not id.isOk:
+    return typeof(result)(isOk: false, err: id.err)
+
   typeof(result)(isOk: true, ok: (
     RawPacket(id: id.ok.num, buf: newBuffer(data[(length.ok.bytesRead + id.ok.bytesRead)..^1])),
     length.ok.bytesRead + length.ok.num

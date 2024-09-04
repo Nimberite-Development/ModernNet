@@ -1,6 +1,6 @@
 # Package
 
-version     = "3.2.1"
+version     = "3.2.2"
 author      = "Luyten Orion"
 description = "ModernNet implements a packet reading and writing system, as well as some useful tools for implementing this into your own project!"
 license     = "Apache-2.0"
