@@ -1,0 +1,18 @@
+format = 0
+
+[package]
+name = "github.com/nimberite-development/modernnet@v3"
+
+[dependencies.zippy]
+src        = "github.com/guzba/zippy"
+origin     = "git"
+scheme     = "https"
+version    = "0.10.11"
+foreign-pm = "nimble"
+
+[dependencies.uuids]
+src        = "github.com/pragmagic/uuids"
+origin     = "git"
+scheme     = "https"
+version    = "0.1.12"
+foreign-pm = "nimble"
